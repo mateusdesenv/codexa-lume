@@ -1,83 +1,128 @@
-const form = document.querySelector('#contact-form')
-const phoneInput = document.querySelector('#phone')
-const result = document.querySelector('#form-result')
-const whatsappLink = document.querySelector('#whatsapp-link')
-const year = document.querySelector('#year')
+document.addEventListener('DOMContentLoaded', () => {
+    const header = document.getElementById('site-header');
+    const menuToggle = document.querySelector('.menu-toggle');
+    const mobileNav = document.getElementById('mobile-nav');
+    const leadForm = document.getElementById('lead-form');
+    const formMessage = document.getElementById('form-message');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const fields = {
-  name: { message: 'Informe seu nome.', minimum: 2 },
-  clinic: { message: 'Informe o nome da clínica.', minimum: 2 },
-  phone: { message: 'Informe um WhatsApp válido com DDD.', minimum: 10, digits: true },
-  city: { message: 'Informe sua cidade e estado.', minimum: 3 },
-  procedure: { message: 'Escolha o procedimento prioritário.', minimum: 1 },
-}
+    function track(eventName, details = {}) {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({ event: eventName, ...details });
+        window.dispatchEvent(new CustomEvent('lume:analytics', { detail: { event: eventName, ...details } }));
+    }
 
-year.textContent = new Date().getFullYear()
+    function setMenu(open) {
+        menuToggle.setAttribute('aria-expanded', String(open));
+        menuToggle.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+        mobileNav.hidden = !open;
+        document.body.classList.toggle('menu-open', open);
+    }
 
-function formatPhone(value) {
-  const digits = value.replace(/\D/g, '').slice(0, 11)
-  if (digits.length <= 2) return digits ? `(${digits}` : ''
-  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
-  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
-}
+    menuToggle.addEventListener('click', () => {
+        setMenu(menuToggle.getAttribute('aria-expanded') !== 'true');
+    });
 
-function setError(input, message = '') {
-  const field = input.closest('.ds-field')
-  const error = document.querySelector(`#${input.id}-error`)
-  field.classList.toggle('has-error', Boolean(message))
-  input.setAttribute('aria-invalid', String(Boolean(message)))
-  if (message) input.setAttribute('aria-describedby', error.id)
-  else input.removeAttribute('aria-describedby')
-  error.textContent = message
-}
+    mobileNav.querySelectorAll('a').forEach((link) => {
+        link.addEventListener('click', () => setMenu(false));
+    });
 
-function validateField(input) {
-  const rule = fields[input.name]
-  if (!rule) return true
-  const value = rule.digits ? input.value.replace(/\D/g, '') : input.value.trim()
-  const valid = value.length >= rule.minimum
-  setError(input, valid ? '' : rule.message)
-  return valid
-}
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && menuToggle.getAttribute('aria-expanded') === 'true') {
+            setMenu(false);
+            menuToggle.focus();
+        }
+    });
 
-phoneInput.addEventListener('input', () => {
-  phoneInput.value = formatPhone(phoneInput.value)
-  if (phoneInput.getAttribute('aria-invalid') === 'true') validateField(phoneInput)
-})
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 860) setMenu(false);
+    });
 
-Object.keys(fields).forEach((name) => {
-  const input = form.elements[name]
-  input.addEventListener('blur', () => validateField(input))
-  input.addEventListener('change', () => validateField(input))
-})
+    function updateHeader() {
+        header.classList.toggle('is-scrolled', window.scrollY > 24);
+    }
 
-form.addEventListener('submit', (event) => {
-  event.preventDefault()
-  result.hidden = true
+    window.addEventListener('scroll', updateHeader, { passive: true });
+    updateHeader();
 
-  const invalid = Object.keys(fields)
-    .map((name) => form.elements[name])
-    .filter((input) => !validateField(input))
+    const revealElements = document.querySelectorAll('.reveal');
+    if (reduceMotion || !('IntersectionObserver' in window)) {
+        revealElements.forEach((element) => element.classList.add('is-visible'));
+    } else {
+        const revealObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach((entry) => {
+                if (!entry.isIntersecting) return;
+                entry.target.classList.add('is-visible');
+                observer.unobserve(entry.target);
+            });
+        }, { threshold: 0.12, rootMargin: '0px 0px -40px' });
+        revealElements.forEach((element) => revealObserver.observe(element));
+    }
 
-  if (invalid.length) {
-    invalid[0].focus()
-    return
-  }
+    const chapters = Array.from(document.querySelectorAll('.demo__chapters li'));
+    if (!reduceMotion && chapters.length) {
+        let activeChapter = 0;
+        window.setInterval(() => {
+            chapters[activeChapter].classList.remove('is-active');
+            activeChapter = (activeChapter + 1) % chapters.length;
+            chapters[activeChapter].classList.add('is-active');
+        }, 2200);
+    }
 
-  const data = new FormData(form)
-  const message = [
-    'Olá! Conheci a Lume e gostaria de conversar sobre páginas para os procedimentos da minha clínica.',
-    '',
-    `Nome: ${data.get('name')}`,
-    `Clínica: ${data.get('clinic')}`,
-    `WhatsApp: ${data.get('phone')}`,
-    `Cidade/Estado: ${data.get('city')}`,
-    `Procedimento prioritário: ${data.get('procedure')}`,
-    data.get('website') ? `Site/Instagram: ${data.get('website')}` : '',
-  ].filter(Boolean).join('\n')
+    document.querySelectorAll('[data-event]').forEach((element) => {
+        element.addEventListener('click', () => {
+            track(element.dataset.event, {
+                demo: element.dataset.demo || undefined,
+                destination: element.getAttribute('href') || undefined
+            });
+        });
+    });
 
-  whatsappLink.href = `https://wa.me/5548988512030?text=${encodeURIComponent(message)}`
-  result.hidden = false
-  result.focus()
-})
+    const whatsappInput = leadForm.querySelector('[name="whatsapp"]');
+    whatsappInput.addEventListener('input', (event) => {
+        const digits = event.target.value.replace(/\D/g, '').slice(0, 11);
+        if (digits.length <= 2) event.target.value = digits;
+        else if (digits.length <= 7) event.target.value = `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+        else event.target.value = `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    });
+
+    leadForm.querySelectorAll('input[required]').forEach((input) => {
+        input.addEventListener('blur', () => input.setAttribute('aria-invalid', String(!input.checkValidity())));
+        input.addEventListener('input', () => {
+            if (input.getAttribute('aria-invalid') === 'true') input.setAttribute('aria-invalid', String(!input.checkValidity()));
+        });
+    });
+
+    leadForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const requiredFields = Array.from(leadForm.querySelectorAll('input[required]'));
+        const invalidField = requiredFields.find((field) => !field.checkValidity());
+
+        requiredFields.forEach((field) => field.setAttribute('aria-invalid', String(!field.checkValidity())));
+
+        if (invalidField) {
+            formMessage.classList.remove('is-success');
+            formMessage.textContent = 'Revise os campos obrigatórios para continuar.';
+            invalidField.focus();
+            track('form_validation_error', { field: invalidField.name });
+            return;
+        }
+
+        const data = new FormData(leadForm);
+        const message = [
+            'Olá, quero uma demonstração do Codexa Lume.',
+            '',
+            `Nome: ${data.get('nome')}`,
+            `Clínica: ${data.get('clinica')}`,
+            `WhatsApp: ${data.get('whatsapp')}`,
+            `Instagram: ${data.get('instagram') || 'Não informado'}`,
+            `Cidade: ${data.get('cidade')}`,
+            `Procedimentos: ${data.get('procedimentos') || 'Não informado'}`
+        ].join('\n');
+
+        formMessage.classList.add('is-success');
+        formMessage.textContent = 'Tudo certo. Vamos continuar pelo WhatsApp.';
+        track('form_submit_success', { city: String(data.get('cidade')), procedures: String(data.get('procedimentos')) });
+        window.open(`https://wa.me/5548988512030?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    });
+});
