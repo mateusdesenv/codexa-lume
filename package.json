@@ -1,0 +1,10 @@
+{
+  "name": "codexa-lume",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node --check script.js && node --check build.mjs"
+  }
+}
